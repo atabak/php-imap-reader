@@ -982,7 +982,7 @@ class Reader
      * @return array
      * @throws Exception
      */
-    public function folders(): array
+    public function getFolders(): array
     {
         $return = [];
         $result = imap_list($this->stream(), $this->hostname, '*');
