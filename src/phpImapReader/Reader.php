@@ -964,17 +964,33 @@ class Reader
     public function status(): array
     {
         $return = [];
-        $status = imap_status($this->stream(), $this->hostname . $this->mailbox, SA_ALL);
-        if ($status) {
+        $result = imap_status($this->stream(), $this->hostname . $this->mailbox, SA_ALL);
+        if ($result) {
             $return = [
-                'messages'    => $status->messages,
-                'unseen'      => $status->unseen,
-                'recent'      => $status->recent,
-                'uidnext'     => $status->uidnext,
-                'uidvalidity' => $status->uidvalidity,
+                'messages'    => $result->messages,
+                'unseen'      => $result->unseen,
+                'recent'      => $result->recent,
+                'uidnext'     => $result->uidnext,
+                'uidvalidity' => $result->uidvalidity,
             ];
         }
-        $this->close();
+        return $return;
+    }
+
+    /**
+     * list of all folder in email account
+     * @return array
+     * @throws Exception
+     */
+    public function folders(): array
+    {
+        $return = [];
+        $result = imap_list($this->stream(), $this->hostname, '*');
+        if ($result) {
+            foreach ($result as $res) {
+                $return[] = str_replace($this->hostname, '', $res);
+            }
+        }
         return $return;
     }
 }
