@@ -990,7 +990,84 @@ class Reader
             foreach ($result as $res) {
                 $return[] = str_replace($this->hostname, '', $res);
             }
+            sort($return);
         }
         return $return;
+    }
+
+    /**
+     * get list of emails without body
+     * @param int        $page
+     * @param int        $per_page
+     * @param array|null $sort
+     * @return array|bool
+     * @throws Exception
+     */
+    public function listMessages(int $page = 1, int $per_page = 25, array $sort = null): array|bool
+    {
+        $limit = ($per_page * $page);
+        $start = ($limit - $per_page) + 1;
+        $start = ($start < 1) ? 1 : $start;
+        $limit = (($limit - $start) != ($per_page - 1)) ? ($start + ($per_page - 1)) : $limit;
+        $info  = imap_check($this->stream());
+        $limit = ($info->Nmsgs < $limit) ? $info->Nmsgs : $limit;
+
+        if (true === is_array($sort)) {
+            $sorting   = [
+                'direction' => ['asc' => 0, 'desc' => 1],
+                'by'        => [
+                    'date'    => SORTDATE,
+                    'arrival' => SORTARRIVAL,
+                    'from'    => SORTFROM,
+                    'subject' => SORTSUBJECT,
+                    'size'    => SORTSIZE,
+                ],
+            ];
+            $by        = is_int($by = $sorting['by'][$sort[0]]) ? $by : $sorting['by']['date'];
+            $direction = is_int($direction = $sorting['direction'][$sort[1]]) ? $direction : $sorting['direction']['desc'];
+            $sorted    = imap_sort($this->stream(), $by, $direction);
+            $messages  = array_chunk($sorted, $per_page);
+            $messages  = $messages[$page - 1];
+        } else {
+            $messages = range($start, $limit); //just to keep it consistent
+        }
+
+        $result = imap_fetch_overview($this->stream(), implode(',', $messages), 0);
+        if (!is_array($result)) {
+            return false;
+        }
+
+        //sorting!
+        if (isset($sorted) and is_array($sorted)) {
+            $tmp_result = [];
+            foreach ($result as $r) {
+                $tmp_result[$r->msgno] = $r;
+            }
+
+            $result = [];
+            foreach ($messages as $msg_no) {
+                $result[] = $tmp_result[$msg_no];
+            }
+        }
+
+        $return          = [
+            'res'     => $result,
+            'start'   => $start,
+            'limit'   => $limit,
+            'sorting' => ($sort ? ['by' => $sort[0], 'direction' => $sort[1]] : []),
+            'total'   => imap_num_msg($this->stream()),
+        ];
+        $return['pages'] = ceil($return['total'] / $per_page);
+        return $return;
+    }
+
+    /**
+     * get total messages in folder
+     * @return int
+     * @throws Exception
+     */
+    public function totalMessages(): int
+    {
+        return imap_num_msg($this->stream());
     }
 }
